@@ -1,38 +1,38 @@
- (package-initialize)
-;; GCを減らして軽くする.
-;(setq gc-cons-threshold (* gc-cons-threshold 10))
-;(setq gc-cons-threshold most-positive-fixnum)
+(package-initialize)
 
-;; Magic File Nameを起動時は無効にする
-(defconst my-saved-file-name-handler-alist file-name-handler-alist)
-(setq file-name-handler-alist nil)
+; take さんに感謝. https://zenn.dev/takeokunn/articles/56010618502ccc
 
+; native-comp warning no report
+(setq native-comp-async-report-warnings-errors 'silent)
+; no beep
+(setq ring-bell-function 'ignore)
+; remove file to trashbox
+(setq delete-by-moving-to-trash t)
 
-;(when (or (eq system-type 'windows-nt) (eq system-type 'gnu/linux))
-;(setq url-proxy-services
-;      '(("http" . "172.27.12.7:12080")
-;        ("https" . "172.27.12.7:12080"))))
+; officeならプロキシ環境とする.代わりにwindowsならproxy設定.
+(when (equal system-type 'windows-nt)
+  (setq url-proxy-services
+      '(("http" . "172.27.12.7:12080")
+        ("https" . "172.27.12.7:12080"))))
 
+; 偉大な先人達に感謝.
 (setq package-archives
       '(("gnu" . "http://elpa.gnu.org/packages/")
         ("melpa" . "http://melpa.org/packages/")
         ("org" . "http://orgmode.org/elpa/")))
 ;frame size and position
 
-; 送る、で開けるようにserverを起動する.
-;(when (eq system-type 'gnu/linux)
-(server-start)
-;)
 
+; emacsclient でopen出来るようにserverを起動.
+(server-start)
+
+; 起動時間計測
 (defconst my/loading-profile-p nil
   "If non-nil, use built-in profiler.el.")
-
 (defconst my/enable-profile nil
   "If true, enable profile")
-
 (defconst my/enable-c-h-backspace nil
   "If true, enable C-h backspace")
-
 
 (defmacro when-darwin (&rest body)
   (when (string= system-type "darwin")
@@ -101,6 +101,7 @@
 
 (add-hook 'after-init-hook #'my/emacs-init-time)
 
+
 ;.5. async load
 (defvar my/delayed-priority-high-configurations '())
 (defvar my/delayed-priority-high-configuration-timer nil)
@@ -148,24 +149,21 @@
       (autoload f file docstring interactive type))
     t))
 
+
 ;.7. common lispを使う
 (eval-and-compile
   (setq byte-compile-warnings '(cl-functions))
   (require 'cl-lib nil t))
-
 (with-delayed-execution-priority-high
   (message "Install cl-lib...")
   (require 'cl-lib))
 
+; ウインドウポジション、サイズ(windows position, size)
+(when (eq system-type 'gnu/linux)
+  (set-frame-size (selected-frame) 93 56)
+  (set-frame-position (selected-frame) 915 28))
 
-;(when (eq system-type 'darwin)
-(set-frame-size (selected-frame) 150 58)
-;)
-;(when (eq system-type 'darwin)
-(set-frame-position (selected-frame) 1 1)
-;)
-
-
+; ~/.emacs.d/lisp 直下を load-path に追加
 (let ((default-directory (locate-user-emacs-file "./lisp")))
   (add-to-list 'load-path default-directory)
   (normal-top-level-add-subdirs-to-load-path))
@@ -174,15 +172,12 @@
 ;.8. el-clone
 (eval-when-compile
   (unless (file-directory-p (locate-user-emacs-file "elpa/el-clone"))))
-;    (package-vc-install "https://github.com/takeokunn/el-clone.git")))
+  ;;; MEMO emacs 設定ファイルをgithub管理するなら以下のように.
+  ;;;  (package-vc-install "https://github.com/takeokunn/el-clone.git")))
 
 (eval-and-compile
   (add-to-list 'load-path (locate-user-emacs-file "elpa/el-clone"))
   (require 'el-clone))
-
-;.9. flymake初期化
-;(require 'flymake)
-;(require 'flymake-proc)
 
 
 ;; カーソル移動を論理行にする
@@ -212,7 +207,9 @@
     (add-hook 'dashboard-mode-hook #'my/disable-show-trailing-whitespace))
 
   (with-eval-after-load 'simple
-    (add-hook 'fundamental-mode-hook #'my/disable-show-trailing-whitespace)))
+    (add-hook 'fundamental-mode-hook #'my/disable-show-trailing-whitespac))
+  )
+
 
 ;.2. 行番号を表示する
 (with-delayed-execution
@@ -221,7 +218,9 @@
   (global-display-line-numbers-mode)
 
   (with-eval-after-load 'display-line-numbers
-    (setq display-line-numbers-grow-only t)))
+    (setq display-line-numbers-grow-only nil)
+    ;(setq display-line-numbers-width 5)
+    ))
 
 ;.3. C-kで行削除
 (with-eval-after-load 'simple
@@ -232,12 +231,7 @@
   (message "Install show-paren-mode...")
   (show-paren-mode t)
   (with-eval-after-load 'paren
-    (setq show-paren-style 'mixed)))
-
-;.5. カッコが自動的に作られるようにする
-(with-delayed-execution
-  (message "Install electric-pair-mode...")
-  (electric-pair-mode 1))
+    (setq show-paren-style 'parenthesis)))
 
 ;.6. coding system
 ;; language and locale
@@ -265,13 +259,8 @@
 (with-delayed-execution
   (fset 'yes-or-no-p 'y-or-n-p))
 
-;.9. global keybind
-;(when my/enable-c-h-backspace
-;  (keyboard-translate ?\C-h ?\C-?)
-;  (global-set-key (kbd "C-h") #'c-hungry-delete-backwards))
-
+; 基本的なキーマップ
 (global-set-key (kbd "C-?") #'help-command)
-
 (global-set-key (kbd "M-¥") #'(lambda () (interactive) (insert "\\")))
 (global-set-key (kbd "C-z") #'undo)
 (global-set-key (kbd "C-a") #'back-to-indentation)
@@ -280,26 +269,13 @@
 (global-set-key (kbd "C-x C-o") #'other-window)
 (global-set-key (kbd "C-x :") #'goto-line)
 (global-set-key (kbd "M-h") #'backward-kill-word)
-
 (global-set-key (kbd "C-x l") 'next-buffer)
-;(global-set-key (kbd "C-x h") 'previous-buffer)
+(global-set-key (kbd "C-x p") 'previous-buffer)
 (global-set-key (kbd "C-x C-b") #'switch-to-buffer)
-
 (global-set-key (kbd "C-x C-k") nil)
 (global-set-key (kbd "C-x C-n") nil)
-
 (global-set-key (kbd "C-x f") 'recentf-open-files)
 
-
-;(when window-system
-;  (global-set-key (kbd "C-x C-c") nil))
-
-;; (global-set-key [return] #'(lambda ()
-;;                              (interactive)
-;;                              (message "Don't use RETURN!!! Press C-m!! C-m!!!")))
-;; (global-set-key [tab] #'(lambda ()
-;;                              (interactive)
-;;                              (message "Don't use TAB!!! Press C-i!! C-i!!!")))
 
 ;.10. minibuffer
 (define-key minibuffer-mode-map (kbd "C-h") #'delete-backward-char)
@@ -312,30 +288,45 @@
   (message "Install savehist...")
   (savehist-mode 1))
 
-;.12. [mac] clipboardに入るようにする
-;(with-delayed-execution
-;  (defun my/copy-from-osx ()
-;    (shell-command-to-string "pbpaste"))
-;
-;  (defun my/paste-to-osx (text)
-;    (let ((process-connection-type nil))
-;      (let ((proc (start-process "pbcopy" "*Messages*" "pbcopy")))
-;        (process-send-string proc text)
-;        (process-send-eof proc))))
-;  (when-darwin-not-window-system
-;   (setq interprogram-cut-function #'my/paste-to-osx)
-;   (setq interprogram-paste-function #'my/copy-from-osx)))
+
+
+;; ;; minibuffer用
+;; (define-key minibuffer-local-completion-map "\C-w" 'backward-kill-word)
+
+;; ;10 カーソル位置の単語を削除
+;; (defun kill-word-at-point ()
+;;   (interactive)
+;;   (let ((char (char-to-string (char-after (point)))))
+;;     (cond
+;;      ((string= " " char) (delete-horizontal-space))
+;;      ((string-match "[\t\n -@\[-`{-~]" char) (kill-word 1))
+;;      (t (forward-char) (backward-word) (kill-word 1)))))
+;; (global-set-key "\M-d" 'kill-word-at-point)
+
+;; ;- リスト11 kill-lineで行が連結したときにインデントを減らす
+;; (defadvice kill-line (before kill-line-and-fixup activate)
+;;   (when (and (not (bolp)) (eolp))
+;;     (forward-char)
+;;     (fixup-whitespace)
+;;     (backward-char)))
+
+
 
 ;.13. pluginをnative compする
 (with-eval-after-load 'comp
   (setq native-comp-async-jobs-number 8)
   (setq native-comp-speed 2)
   (setq native-comp-always-compile t)
-
   (defun my/native-comp-packages ()
     (interactive)
     (native-compile-async "~/.emacs.d/init.el")
     (native-compile-async "~/.emacs.d/early-init.el")
+    (native-compile-async "~/.emacs.d/popup-autoloads.el")
+    (native-compile-async "~/.emacs.d/popup-pkg.el")
+    (native-compile-async "~/.emacs.d/popup.el")
+    (native-compile-async "~/.emacs.d/mozc-popup-autoloads.el")
+    (native-compile-async "~/.emacs.d/mozc-popup-pkg.el")
+    (native-compile-async "~/.emacs.d/mozc-popup.el")
     (native-compile-async "~/.emacs.d/el-clone" 'recursively)
     (native-compile-async "~/.emacs.d/elpa" 'recursively)))
 
@@ -344,29 +335,80 @@
   (setq package-native-compile nil))
 
 ;.15. native compのwarningを抑える
-(custom-set-variables '(warning-suppress-types '((comp))))
+(custom-set-variables
+ ;; custom-set-variables was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ '(goggles-pulse-delay 0.1)
+ '(goggles-pulse-iterations 2)
+ '(initial-buffer-choice nil)
+ '(package-selected-packages nil)
+ '(savehist-additional-variables '(kill-ring))
+ '(warning-suppress-types '((comp))))
 
 ;.16. 同一bufferの名前を変える
 (with-eval-after-load 'uniquify
   (setq uniquify-buffer-name-style 'post-forward-angle-brackets))
 
-;.17. killできないようにする
+;.17. scratch,message バッファを killできないようにする
 (with-current-buffer "*scratch*"
   (emacs-lock-mode 'kill))
 
 (with-current-buffer "*Messages*"
   (emacs-lock-mode 'kill))
 
+;; scratch バッファの内容をファイルに書き出して保持する
+(defun save-scratch-data ()
+  (let ((str (progn
+               (set-buffer (get-buffer "*scratch*"))
+               (buffer-substring-no-properties
+                (point-min) (point-max))))
+        (file "~/.emacs.d/.scratch"))
+    (if (get-file-buffer (expand-file-name file))
+        (setq buf (get-file-buffer (expand-file-name file)))
+      (setq buf (find-file-noselect file)))
+    (set-buffer buf)
+    (erase-buffer)
+    (insert str)
+    (save-buffer)
+    (kill-buffer buf)))
+
+(defadvice save-buffers-kill-emacs
+  (before save-scratch-buffer activate)
+  (save-scratch-data))
+
+(defun read-scratch-data ()
+  (let ((file "~/.emacs.d/.scratch"))
+    (when (file-exists-p file)
+      (set-buffer (get-buffer "*scratch*"))
+      (erase-buffer)
+      (insert-file-contents file))
+    ))
+
+(read-scratch-data)
+
 ;.18. 日時表示
 (with-eval-after-load 'time
   (setq display-time-24hr-format t)
   (setq display-time-day-and-date t))
 
-; mozcの設定
+; mozcの設定 
 (require 'mozc)
+(require 'mozc-popup) ;;
+(require 'mozc-cursor-color)
 (set-language-environment "Japanese")
 (setq default-input-method "japanese-mozc")
-(setq mozc-candidate-style 'overlay)
+(setq mozc-candidate-style 'popup)
+; mozc カーソルカラーを設定する
+(setq mozc-cursor-color-alist '((direct        . "LightYellow")
+                                (read-only     . "yellow")
+                                (hiragana      . "green")
+                                (full-katakana . "goldenrod")
+                                (half-ascii    . "dark orchid")
+                                (full-ascii    . "orchid")
+                                (half-katakana . "dark goldenrod")))
+
 ; 全角半角キーで on/off
 (global-set-key [zenkaku-hankaku] 'toggle-input-method)
 ; 変換キーでon
@@ -390,49 +432,38 @@ properly disable mozc-mode."
       ad-do-it)))
 (ad-activate 'mozc-handle-event)
 
-;.20. warning
 
+;.20. warning
 (setq display-warning-minimum-level :error)
 
 ;.21. キーコマンド入力中に入力過程をミニバッファに反映する
-
 (setq echo-keystrokes 0.1)
 
 ;.22. recursive minibuffers
-
 (setq enable-recursive-minibuffers t)
 
 ;.23. inhibit-compacting-font-caches
-
 (setq inhibit-compacting-font-caches t)
 
 ;.24. save-place-mode
-
 (with-delayed-execution
   (save-place-mode 1))
 
 ;.25. enable-local-variables
-
 (setq enable-local-variables :all)
 
 
 
 ;.27. tab-width
-
 (setq tab-width 4)
 
 ;.28. indentはspaceにする
-
 (setq-default indent-tabs-mode nil)
 
-
-
 ;.29. 検索で大文字小文字を区別しない
-
 (setq read-file-name-completion-ignore-case t)
 (setq read-buffer-completion-ignore-case t)
 (setq completion-ignore-case t)
-
 
 ; async
 (eval-when-compile
@@ -453,7 +484,6 @@ properly disable mozc-mode."
 
 
 ;6.10. dash
-
 (eval-when-compile
   (el-clone :repo "magnars/dash.el"))
 
@@ -464,7 +494,6 @@ properly disable mozc-mode."
 
 
 ;6.17. f
-
 (eval-when-compile
   (el-clone :repo "rejeep/f.el"))
 
@@ -474,7 +503,6 @@ properly disable mozc-mode."
 
 
 ;6.48. s
-
 (eval-when-compile
   (el-clone :repo "magnars/s.el"))
 
@@ -484,7 +512,6 @@ properly disable mozc-mode."
 
 
 ;6.58. ts
-
 (eval-when-compile
   (el-clone :repo "alphapapa/ts.el"))
 
@@ -504,30 +531,13 @@ properly disable mozc-mode."
 
 
 ; auto-complete/popup-el
-(eval-when-compile
-  (el-clone :repo "auto-complete/popup.el"))
+;; (eval-when-compile
+;;   (el-clone :repo "auto-complete/popup.el"))
 
-(with-delayed-execution-priority-high
-  (message "Install auto-complete/popup-el...")
-  (add-to-list 'load-path (locate-user-emacs-file "el-clone/popup")))
+;; (with-delayed-execution-priority-high
+;;   (message "Install auto-complete/popup-el...")
+;;   (add-to-list 'load-path (locate-user-emacs-file "el-clone/popup")))
 
-
-(eval-when-compile
-  (el-clone :repo "abo-abo/swiper"))
-(with-delayed-execution-priority-high
-  (message "Install swiper...")
-  (add-to-list 'load-path (locate-user-emacs-file "el-clone/swiper"))
-  (load "~/.emacs.d/el-clone/swiper/swiper.el")
-  (global-set-key (kbd "C-s") #'swiper)
-  )
-
-;(eval-when-compile
-;  (el-clone :repo "emacs-helm/helm"))
-
-;(with-delayed-execution-priority-high
-;  (message "Install helm...")
-;  (add-to-list 'load-path (locate-user-emacs-file "el-clone/helm")))
-; (load "~/.emacs.d/el-clone/helm/helm.el")  (load "~/.emacs.d/el-clone/helm/helm-core.el") 
 
 (eval-when-compile
   (el-clone :repo "milkypostman/powerline"))
@@ -536,23 +546,30 @@ properly disable mozc-mode."
   (message "Install powerline...")
   (add-to-list 'load-path (locate-user-emacs-file "el-clone/powerline")))
 
-
-
-
 ;.4. c++-mode
 
 (with-eval-after-load 'c++-mode
-  (add-hook 'c++-mode-hook #'lsp-deferred))
+  (add-hook 'c++-mode-hook #'lsp-bridge-mode))
 
 ;.5. c-mode
 
 (with-eval-after-load 'cc-mode
-  (add-hook 'c-mode-hook #'lsp-deferred))
+  (add-hook 'c-mode-hook #'lsp-bridge-mode))
 
+;.9. flymake初期化 TODO errorが出る. at emacs 29, 30.50.
+;(require 'flymake)
+;(require 'flymake-proc)
+;github.com/flymake/emacs-flymake/blob/master/flymake.el
 
+;(eval-when-compile
+;  (el-clone :repo "flymake/emacs-flymake/blob/master"))
 
+;(with-delayed-execution
+;  (message "Install flymake...")
+;  (add-to-list 'load-path (locate-user-emacs-file "el-clone/flymake")))
+
+  
 ;.9. cmake-mode
-
 (eval-when-compile
   (el-clone :repo "emacsmirror/cmake-mode"))
 
@@ -565,7 +582,6 @@ properly disable mozc-mode."
 
 
 ;.13. csharp-mode
-
 (eval-when-compile
   (el-clone :repo "emacs-csharp/csharp-mode"))
 
@@ -580,7 +596,6 @@ properly disable mozc-mode."
 
 
 ;.15. csv-mode
-
 (eval-when-compile
   (el-clone :repo "emacsmirror/csv-mode"))
 
@@ -594,7 +609,6 @@ properly disable mozc-mode."
 
 
 ;.44. java-mode
-
 (with-delayed-execution
   (message "Install java-mode...")
   (autoload-if-found '(java-mode) "java-mode" nil t)
@@ -603,7 +617,6 @@ properly disable mozc-mode."
 
 
 ;.46. json-mode
-
 (eval-when-compile
   (el-clone :repo "Sterlingg/json-snatcher")
   (el-clone :repo "joshwnj/json-mode"))
@@ -623,10 +636,16 @@ properly disable mozc-mode."
   (with-eval-after-load 'json-mode
     (add-hook 'json-mode-hook #'flycheck-mode)))
 
-
+; typescript-mode
+(autoload-if-found '(typescript-mode) "typescript-mode" nil t)
+;; for ts/deno
+(add-to-list 'auto-mode-alist '("\\.ts$" . typescript-mode))
+;; for tsx
+(define-derived-mode typescript-tsx-mode typescript-mode "tsx")
+(add-to-list 'auto-mode-alist '("\\.jsx$" . typescript-tsx-mode))
+(add-to-list 'auto-mode-alist '("\\.tsx$" . typescript-tsx-mode))
 
 ;.61. pcap-mode
-
 (eval-when-compile
   (el-clone :repo "orgcandman/pcap-mode"))
 
@@ -641,7 +660,6 @@ properly disable mozc-mode."
 
 
 ;.66. plantuml-mode
-
 (eval-when-compile
   (el-clone :repo "skuro/plantuml-mode"))
 
@@ -666,9 +684,7 @@ properly disable mozc-mode."
   (add-to-list 'auto-mode-alist '("\\.proto\\'" . protobuf-mode)))
 
 
-
 ;.1.4. popwin
-
 (eval-when-compile
   (el-clone :repo "emacsorphanage/popwin"))
 
@@ -681,7 +697,6 @@ properly disable mozc-mode."
   (popwin-mode 1))
 
 ;.1.5. whitespace
-
 (with-delayed-execution
   (message "Install whitespace...")
   (when (autoload-if-found '(global-whitespace-mode) "whitespace" nil t)
@@ -695,7 +710,6 @@ properly disable mozc-mode."
 
 
 ;.2.1. flycheck
-
 (eval-when-compile
   (el-clone :repo "flycheck/flycheck"))
 
@@ -706,7 +720,6 @@ properly disable mozc-mode."
   (autoload-if-found '(flycheck-mode flycheck-define-checker) "flycheck" nil t))
 
 ;.2.2. flycheck-textlint
-
 (with-delayed-execution
   (flycheck-define-checker textlint
     "A linter for prose."
@@ -723,7 +736,6 @@ properly disable mozc-mode."
 
 
 ;.4.1. ansi-color
-
 (with-delayed-execution
   (message "Install ansi-color...")
   (autoload 'ansi-color-for-comint-mode-on "ansi-color" "Set `ansi-color-for-comint-mode' to t." t)
@@ -737,7 +749,6 @@ properly disable mozc-mode."
                                            (ansi-color-apply-on-region (point-min) (point-max))))))
 
 ;.4.2. highlight-indent-guides
-
 (eval-when-compile
   (el-clone :repo "DarthFennec/highlight-indent-guides"))
 
@@ -755,7 +766,6 @@ properly disable mozc-mode."
     (setq highlight-indent-guides-method 'bitmap)))
 
 ;.4.3. hl-todo
-
 (eval-when-compile
   (el-clone :repo "tarsius/hl-todo"))
 
@@ -772,12 +782,10 @@ properly disable mozc-mode."
           '(("HOLD" . "#d0bf8f")
             ("TODO" . "#cc9393")
             ("NOW" . "#dca3a3")
-            ("SOMEDAY" . "#dc8cc3")
+            ("SOMEDAY" . "#bfd9bf")
             ("WAIT" . "#7cb8bb")
             ("DONE" . "#afd8af")
             ("FIXME" . "#cc9393")))))
-
-
 
 
 ;.6. Completion
@@ -799,6 +807,8 @@ properly disable mozc-mode."
     (setq corfu-auto t)
     (setq corfu-auto-delay 0.2)
     (setq corfu-cycle t)
+    (setq corfu-popupinfo-mode +1)
+    (setq corfu-preselect 'valid)
     (setq corfu-on-exact-match nil))
 
   (with-eval-after-load 'indent
@@ -856,53 +866,20 @@ properly disable mozc-mode."
     (add-to-list 'corfu-margin-formatters #'kind-icon-margin-formatter)))
 
 ;.7. Cursor
-;.7.1. avy
 
-(eval-when-compile
-  (el-clone :repo "abo-abo/avy"))
+;; ;.7.3. expand-region -> puniのexpand-regionへ
+;; (eval-when-compile
+;;   (el-clone :repo "magnars/expand-region.el"))
+;; (with-delayed-execution
+;;   (message "Install expand-region...")
+;;   (add-to-list 'load-path (locate-user-emacs-file "el-clone/expand-region"))
+;;   (autoload-if-found '(er/expand-region) "expand-region" nil t)
+;;   (transient-mark-mode)
+;;   (global-set-key (kbd "C-@") 'er/expand-region)
+;;   (global-set-key (kbd "C-M-@") 'er/contract-region))
 
-(with-delayed-execution
-  (message "Install avy...")
-  (add-to-list 'load-path (locate-user-emacs-file "el-clone/avy"))
-
-  (autoload-if-found '(avy-goto-word-1) "avy" nil t)
-
-  (global-set-key (kbd "C-:") #'avy-goto-word-1)
-
-  (with-eval-after-load 'avy
-    (setq avy-all-windows nil)
-    (setq avy-background t)))
-
-;.7.2. avy-zap
-
-(eval-when-compile
-  (el-clone :repo "cute-jumper/avy-zap"))
-
-(with-delayed-execution
-  (message "Install avy-zap...")
-  (add-to-list 'load-path (locate-user-emacs-file "el-clone/avy-zap"))
-
-  (autoload-if-found '(avy-zap-up-to-char-dwim) "avy-zap" nil t)
-
-  (global-set-key (kbd "M-z") 'avy-zap-up-to-char-dwim))
-
-;.7.3. expand-region
-
-(eval-when-compile
-  (el-clone :repo "magnars/expand-region.el"))
-
-(with-delayed-execution
-  (message "Install expand-region...")
-  (add-to-list 'load-path (locate-user-emacs-file "el-clone/expand-region"))
-
-  (autoload-if-found '(er/expand-region) "expand-region" nil t)
-
-  (transient-mark-mode)
-
-  (global-set-key (kbd "C-M-@") 'er/expand-region))
 
 ;.8. multiple-cursors
-
 (eval-when-compile
   (el-clone :repo "magnars/multiple-cursors.el"))
 
@@ -958,7 +935,10 @@ properly disable mozc-mode."
   ;; config
   (with-eval-after-load 'eww
     (setq eww-header-line-format nil)
-    (setq eww-search-prefix "http://www.google.co.jp/search?q="))
+    ; google 検索でjavascript有効にしてください、と表示されるようになったため、
+    ;duckduckgoに
+    ;(setq eww-search-prefix "http://www.google.co.jp/search?q=")
+    )
 
   ;; keybind
   (with-eval-after-load 'eww
@@ -1014,49 +994,7 @@ properly disable mozc-mode."
     (setq recentf-exclude '("recentf" "\\.gpg\\"))))
 
 
-;.14. GC
-;.14.1. gcmh
-
-(eval-when-compile
-  (el-clone :repo "emacsmirror/gcmh"))
-
-(with-delayed-execution
-  (message "Install gcmh...")
-  (add-to-list 'load-path (locate-user-emacs-file "el-clone/gcmh"))
-
-  (autoload-if-found '(gcmh-mode) "gcmh" nil t)
-
-  (setq gcmh-idle-delay 'auto
-      gcmh-auto-idle-delay-factor 100
-      gcmh-high-cons-threshold (* 128 1024 1024))
-  
-  (gcmh-mode)
-
-  (defvar my/gcmh-status nil)
-
-  (advice-add #'garbage-collect
-              :before
-              (defun my/gcmh-log-start (&rest _)
-                (when gcmh-verbose
-                  (setq my/gcmh-status "Running GC..."))))
-
-  (advice-add #'gcmh-message
-              :override
-              (defun my/gcmh-message (format-string &rest args)
-                (setq my/gcmh-status
-                      (apply #'format-message format-string args))
-                (run-with-timer 2 nil
-                                (lambda ()
-                                  (setq my/gcmh-status nil)))))
-
-  (with-eval-after-load 'gcmh
-    ;; config
-    (setq gcmh-verbose t)))
-
-
-
-;.21.3. which-key
-
+;.21.3. which-key 例えば C-x して1秒待つと2stroke 候補を表示.
 (eval-when-compile
   (el-clone :repo "justbur/emacs-which-key"))
 
@@ -1069,296 +1007,7 @@ properly disable mozc-mode."
   (which-key-mode))
 
 
-
-
-;.22. LSP
-;.22.1. eglot
-
-(with-delayed-execution
-  (message "Install eglot...")
-
-  (autoload-if-found '(eglot) "eglot" nil t)
-
-  (with-eval-after-load 'eglot
-    ;; config
-    (setq eglot-events-buffer-size nil)
-    (setq eglot-autoshutdown t)
-    (setq eglot-extend-to-xref t)
-
-    ;; language server
-    (add-to-list 'eglot-server-programs '(php-mode . ("intelephense" "--stdio")))
-    (add-to-list 'eglot-server-programs '(clojure-mode clojurescript-mode clojurec-mode
-                                                       . ("/Users/take/.emacs.d/.cache/lsp/clojure/clojure-lsp"
-                                                          "listen" "--verbose")))))
-
-;.22.2. lsp-mode
-
-(eval-when-compile
-  (el-clone :repo "emacs-lsp/lsp-mode"
-            :load-paths `(,(locate-user-emacs-file "el-clone/lsp-mode/clients"))))
-
-(with-delayed-execution
-  (message "Install lsp-mode...")
-  (add-to-list 'load-path (locate-user-emacs-file "el-clone/lsp-mode"))
-  (add-to-list 'load-path (locate-user-emacs-file "el-clone/lsp-mode/clients"))
-
-  (autoload-if-found '(lsp lsp-deferred lsp-org) "lsp-mode" nil t)
-  (autoload-if-found '(lsp-lens-mode lsp-lens-refresh lsp-lens--enable) "lsp-lens" nil t)
-  (autoload-if-found '(lsp-modeline-workspace-status-mode) "lsp-modeline" nil t)
-  (autoload-if-found '(lsp-headerline-breadcrumb-mode) "lsp-headerline" nil t)
-
-  (advice-add 'lsp-rename :before #'(lambda (&rest _) (remove-hook 'find-file-hooks #'view-mode)))
-  (advice-add 'lsp-rename :after #'(lambda (&rest _) (add-hook 'find-file-hooks #'view-mode)))
-
-  (with-eval-after-load 'lsp-mode
-    (add-to-list 'lsp-language-id-configuration '("php-ts-mode" . "php"))
-
-    ;; ignore path
-    (add-to-list 'lsp-file-watch-ignored-directories "[/\\\\]vendor")
-    (add-to-list 'lsp-file-watch-ignored-directories "[/\\\\]storage")
-    (add-to-list 'lsp-file-watch-ignored-directories "[/\\\\]docs")
-    (add-to-list 'lsp-file-watch-ignored-directories "[/\\\\]target")
-    (add-to-list 'lsp-file-watch-ignored-directories "[/\\\\].calva")
-    (add-to-list 'lsp-file-watch-ignored-directories "[/\\\\].clj-kondo")
-    (add-to-list 'lsp-file-watch-ignored-directories "[/\\\\].direnv")
-
-    ;; enable flycheck
-    (add-hook 'lsp-mode-hook #'flycheck-mode)
-
-    ;; config
-    (setq lsp-idle-delay 0.8)
-    (setq lsp-enable-links nil)
-    (setq lsp-log-io nil)
-    (setq lsp-file-watch-threshold 20000))
-
-  (with-eval-after-load 'lsp-completion
-    (setq lsp-completion-no-cache t)
-    (setq lsp-prefer-capf t))
-
-  (with-eval-after-load 'lsp-diagnostics
-    (setq lsp-diagnostics-provider :flycheck))
-
-  (with-eval-after-load 'lsp-php
-    ;; for intelephense
-    (setq lsp-intelephense-clear-cache t)
-    (setq lsp-intelephense-php-version "8.2")
-    (setq lsp-intelephense-telemetry-enabled t)
-    (setq lsp-intelephense-files-exclude ["**/.git/**" "**/.svn/**" "**/.hg/**" "**/CVS/**" "**/.DS_Store/**"
-                                          "**/node_modules/**" "**/bower_components/**" "**/vendor/**/{Test,test,Tests,tests}/**"
-                                          "**/.direnv/**"]))
-
-
-  (with-eval-after-load 'lsp-completion
-    (setq lsp-completion-provider :none))
-
-  (with-eval-after-load 'lsp-ruby
-    (setq lsp-solargraph-autoformat t)
-    (setq lsp-solargraph-multi-root nil)))
-
-;.22.3. lsp-php-key
-
-(with-delayed-execution
-  (message "Install lsp-php-key...")
-  (with-eval-after-load 'lsp-php
-    (setq lsp-intelephense-licence-key "00OXTX8OROOJH9P")))
-
-;.22.4. consult-lsp
-
-(eval-when-compile
-  (el-clone :repo "gagbo/consult-lsp"))
-
-(with-delayed-execution
-  (message "Install consult-lsp...")
-  (add-to-list 'load-path (locate-user-emacs-file "el-clone/consult-lsp"))
-
-  (autoload-if-found '(consult-lsp-symbols) "consult-lsp" nil t)
-
-  (with-eval-after-load 'lsp-mode
-    (define-key lsp-mode-map [remap xref-find-apropos] #'consult-lsp-symbols)))
-
-;.22.5. lsp-treemacs
-
-(eval-when-compile
-  (el-clone :repo "emacs-lsp/lsp-treemacs"))
-
-(with-delayed-execution
-  (message "Install lsp-treemacs...")
-  (add-to-list 'load-path (locate-user-emacs-file "el-clone/lsp-treemacs"))
-
-  (autoload-if-found '(lsp-treemacs-sync-mode) "lsp-treemacs" nil t)
-
-  (with-eval-after-load 'lsp-mode
-    (add-hook 'lsp-mode-hook #'lsp-treemacs-sync-mode))
-
-  (with-eval-after-load 'lsp-treemacs
-    (setq lsp-treemacs-error-list-severity 1)
-    (setq lsp-treemacs-error-list-current-project-only t)))
-
-;.22.6. lsp-docker
-
-(eval-when-compile
-  (el-clone :repo "emacs-lsp/lsp-docker"))
-
-(with-delayed-execution
-  (message "Install lsp-docker...")
-  (add-to-list 'load-path (locate-user-emacs-file "el-clone/lsp-docker"))
-
-  (autoload-if-found '(lsp-docker-start) "lsp-docker" nil t))
-
-;.22.7. dap-mode
-
-(eval-when-compile
-  (el-clone :repo "emacs-lsp/dap-mode"))
-
-(with-delayed-execution
-  (message "Install dap-mode...")
-  (add-to-list 'load-path (locate-user-emacs-file "el-clone/dap-mode"))
-
-  (autoload-if-found '(dap-debug) "dap-mode" nil t)
-  (autoload-if-found '(dap-hydra) "dap-hydra" nil t)
-  (autoload-if-found '(dap-ui-mode dap-ui-controls-mode) "dap-ui" nil t)
-  (autoload-if-found '(dap-tooltip-mode) "dap-mouse" nil t)
-  (autoload-if-found '(dap-php-setup) "dap-php" nil t)
-  (autoload-if-found '(dap-node-setup) "dap-node" nil t)
-  (autoload-if-found '(dap-go-setup) "dap-go" nil t)
-  (autoload-if-found '(dap-ruby-setup) "dap-ruby" nil t)
-
-  (with-eval-after-load 'dap-mode
-    ;; keybind
-    (define-key dap-mode-map (kbd "C-c d") #'dap-breakpoint-toggle)
-
-    ;; hook
-    (add-hook 'dap-mode-hook #'dap-ui-mode)
-    (add-hook 'dap-mode-hook #'dap-ui-controls-mode)
-    (add-hook 'dap-mode-hook #'tooltip-mode)
-    (add-hook 'dap-mode-hook #'dap-tooltip-mode)
-    (add-hook 'dap-stopped-hook #'(lambda (arg) (call-interactively #'dap-hydra))))
-
-  (with-eval-after-load 'php-mode
-    (add-hook 'php-mode-hook #'dap-php-setup))
-
-  (with-eval-after-load 'dap-php
-    ;; config
-    (setq dap-php-debug-path `,(expand-file-name "xdebug/vscode-php-debug" dap-utils-extension-path))
-
-    ;; register
-    (dap-register-debug-template "Laravel Run Configuration"
-                                 (list :type "php"
-                                       :request "launch"
-                                       :mode "remote"
-                                       :host "localhost"
-                                       :port 9003)))
-
-  ;; (with-eval-after-load 'js2-mode
-  ;;   (add-hook 'js2-mode-hook #'dap-node-setup))
-
-  (with-eval-after-load 'go-mode
-    (add-hook 'go-mode-hook #'dap-go-setup))
-
-  (with-eval-after-load 'ruby-mode
-    (add-hook 'ruby-mode-hook #'dap-ruby-setup)))
-
-;.22.8. lsp-ui
-
-(eval-when-compile
-  (el-clone :repo "emacs-lsp/lsp-ui"))
-
-(with-delayed-execution
-  (message "Install lsp-ui...")
-  (add-to-list 'load-path (locate-user-emacs-file "el-clone/lsp-ui"))
-
-  (autoload-if-found '(lsp-ui-mode) "lsp-ui" nil t)
-
-  ;; hook
-  (with-eval-after-load 'lsp-mode
-    (add-hook 'lsp-mode-hook #'lsp-ui-mode))
-
-  ;; lsp-ui-doc
-  (with-eval-after-load 'lsp-ui-doc
-    (setq lsp-ui-doc-enable nil)
-    (setq lsp-ui-doc-show-with-cursor t)
-    (setq lsp-ui-doc-use-webkit t)
-    (setq lsp-ui-doc-include-signature t)
-    (setq lsp-ui-doc-delay 1)
-    (setq lsp-ui-doc-max-height 30))
-
-  ;; lsp-ui-peek
-  (autoload-if-found '(lsp-ui-peek-find-references lsp-ui-peek-find-definitions lsp-ui-peek-find-implementation) "lsp-ui-peek" nil t)
-  (with-eval-after-load 'lsp-ui-peek
-    (setq lsp-ui-peek-enable nil)
-    (setq lsp-ui-peek-peek-height 30)
-    (setq lsp-ui-peek-list-width 60)
-    (setq lsp-ui-peek-fontify 'on-demand))
-
-  ;; lsp-ui-imenu
-  (autoload-if-found '(lsp-ui-imenu) "lsp-ui-imenu" nil t)
-  (with-eval-after-load 'lsp-ui-imenu
-    (setq lsp-ui-imenu-enable nil)
-    (setq lsp-ui-imenu-kind-position 'top))
-
-  ;; lsp-ui-sideline
-  (autoload-if-found '(lsp-ui-sideline-mode) "lsp-ui-sideline" nil t)
-  (with-eval-after-load 'lsp-ui-sideline
-    (setq lsp-ui-sideline-enable nil)
-    (setq lsp-ui-sideline-show-hover t))
-
-  ;; keybind
-  (with-eval-after-load 'lsp-mode
-    (define-key lsp-mode-map (kbd "C-c C-r") #'lsp-ui-peek-find-references)
-    (define-key lsp-mode-map (kbd "C-c C-j") #'lsp-ui-peek-find-definitions)
-    (define-key lsp-mode-map (kbd "C-c C-i") #'lsp-ui-peek-find-implementation)
-    (define-key lsp-mode-map (kbd "C-c C-m") #'lsp-ui-imenu)
-    (define-key lsp-mode-map (kbd "C-c C-s") #'lsp-ui-sideline-mode)
-    (define-key lsp-mode-map (kbd "C-c C-d") #'lsp-ui-doc-mode)))
-
-;.22.9. lsp-scheme
-
-(eval-when-compile
-  (el-clone :repo "takeokunn/emacs-lsp-scheme"))
-
-(with-delayed-execution
-  (message "Install lsp-scheme...")
-  (add-to-list 'load-path (locate-user-emacs-file "el-clone/emacs-lsp-scheme"))
-
-  (autoload-if-found '(lsp-scheme) "lsp-scheme" nil t)
-
-  (with-eval-after-load 'scheme
-    ;; (add-hook 'scheme-mode-hook #'lsp-scheme)
-    )
-
-  (with-eval-after-load 'lsp-scheme
-    (setq lsp-scheme-implementation "guile")))
-
-;.22.10. lsp-haskell
-
-;(eval-when-compile
-;  (el-clone :repo "emacs-lsp/lsp-haskell"))
-
-;(with-delayed-execution
-;  (message "Install lsp-haskell...")
-;  (add-to-list 'load-path (locate-user-emacs-file "el-clone/lsp-haskell"))
-;  (autoload-if-found '(lsp) "lsp-haskell" nil t)
-
-;  (with-eval-after-load 'haskell-mode
-;    (add-hook 'haskell-mode-hook #'lsp)
-;    (add-hook 'haskell-literate-mode-hook #'lsp)))
-
-;.22.11. TODO lsp-pyright
-
-(eval-when-compile
-  (el-clone :repo "emacs-lsp/lsp-pyright"))
-
-(with-delayed-execution
-  (message "Install lsp-pyright...")
-  (add-to-list 'load-path (locate-user-emacs-file "el-clone/lsp-pyright"))
-
-  ;; (with-eval-after-load 'python-mode
-  ;;   (add-hook 'python-mode-hook #'(lambda ()
-  ;;                                   (require 'lsp-pyright)
-  ;;                                   (lsp))))
-  )
-
-
+; markdown-mode
 (eval-when-compile
   (el-clone :repo "defunkt/markdown-mode"))
 
@@ -1367,17 +1016,15 @@ properly disable mozc-mode."
   (add-to-list 'load-path (locate-user-emacs-file "el-clone/markdown-mode"))
   (autoload-if-found '(mark-down-mode) "markdown-mode" nil t))
 
-(eval-when-compile
-  (el-clone :repo "tumashu/postframe"))
-
-(with-delayed-execution
-  (message "Install postframe...")
-  (add-to-list 'load-path (locate-user-emacs-file "el-clone/postframe"))
-  (autoload-if-found '(postfraem) "postframe" nil t))
+;; (eval-when-compile
+;;   (el-clone :repo "tumashu/postframe"))
+;; (with-delayed-execution
+;;   (message "Install postframe...")
+;;   (add-to-list 'load-path (locate-user-emacs-file "el-clone/postframe"))
+;;   (autoload-if-found '(postframe) "postframe" nil t))
 
 
 ;.22.12. lsp-bridge
-
 (eval-when-compile
   (el-clone :repo "manateelazycat/lsp-bridge"))
 
@@ -1389,8 +1036,8 @@ properly disable mozc-mode."
 
   (with-eval-after-load 'lsp-bridge
     ;; config
-    (setq lsp-bridge-php-lsp-server "phpactor")
-
+    (setq lsp-bridge-c-lsp-server "clangd")
+    (setq acm-enable-doc t)
     ;; keybind
     (define-key lsp-bridge-mode-map (kbd "M-.") #'lsp-bridge-find-impl)
     (define-key lsp-bridge-mode-map (kbd "C-c C-r") #'lsp-bridge-find-references)))
@@ -1422,32 +1069,7 @@ properly disable mozc-mode."
   )
 
 ;.29. Search
-;.29.1. migemo
-
-(eval-when-compile
-  (el-clone :repo "emacs-jp/migemo"))
-
-;; (with-delayed-execution
-;;   (message "Install migemo...")
-;;   (add-to-list 'load-path (locate-user-emacs-file "el-clone/migemo"))
-
-;;   (autoload-if-found '(migemo-init) "migemo" nil t)
-
-;;   (with-eval-after-load 'migemo
-;;     (setq migemo-command "cmigemo")
-;;     (setq migemo-dictionary "~/.nix-profile/share/migemo/utf-8/migemo-dict")
-;;     (setq migemo-user-dictionary nil)
-;;     (setq migemo-regex-dictionary nil)
-;;     (setq migemo-coding-system 'utf-8-unix)
-;;     (setq migemo-use-pattern-alist t)
-;;     (setq migemo-use-frequent-pattern-alist t))
-
-;;   ;; (migemo-init)
-;;   )
-
-
 ;.29.3. consult
-
 (eval-when-compile
   (el-clone :repo "minad/consult"))
 
@@ -1501,9 +1123,10 @@ properly disable mozc-mode."
 
   ;; C-x bindings in `ctl-x-map'
   (global-set-key (kbd "C-x M-:") #'consult-complex-command)
-  (global-set-key (kbd "C-x b") #'consult-buffer)
+  (global-set-key (kbd "C-x b")   #'consult-buffer)
   (global-set-key (kbd "C-x 4 b") #'consult-buffer-other-window)
   (global-set-key (kbd "C-x 5 b") #'consult-buffer-other-frame)
+  (global-set-key (kbd "C-x C-g") #'consult-ripgrep)
 
   ;; Other custom bindings
   (global-set-key (kbd "M-y") #'consult-yank-pop)
@@ -1543,6 +1166,90 @@ properly disable mozc-mode."
   (with-eval-after-load 'xref
     (setq xref-show-xrefs-function #'consult-xref)
     (setq xref-show-definitions-function #'consult-xref)))
+
+
+;14.4. embark
+(eval-when-compile
+  (el-clone :repo "oantolin/embark"))
+
+(with-delayed-execution
+  (message "Install embark...")
+  (add-to-list 'load-path (locate-user-emacs-file "el-clone/embark"))
+
+
+(autoload-if-found '(embark-act embark-dwim embark-prefix-help-command) "embark" nil t)
+
+(keymap-global-set "C-." #'embark-act)
+(keymap-global-set "M-." #'embark-dwim)
+(keymap-global-set "C-h B" #'embark-prefix-help-command)
+
+(with-eval-after-load 'embark
+  ;; macros
+  (defmacro my/embark-ace-action (fn)
+    `(defun ,(intern (concat "my/embark-ace-" (symbol-name fn))) ()
+       (interactive)
+       (with-demoted-errors "%s"
+         (aw-switch-to-window (aw-select nil))
+         (call-interactively (symbol-function ',fn)))))
+
+  (defmacro my/embark-split-action (fn split-type)
+    `(defun ,(intern (concat "my/embark-"
+                             (symbol-name fn)
+                             "-"
+                             (car (last (split-string
+                                         (symbol-name split-type) "-"))))) ()
+       (interactive)
+       (funcall #',split-type)
+       (call-interactively #',fn)))
+
+  (defun my/sudo-find-file (file)
+    "Open FILE as root."
+    (interactive "FOpen file as root: ")
+    (when (file-writable-p file)
+      (user-error "File is user writeable, aborting sudo"))
+    (find-file (if (file-remote-p file)
+                   (concat "/" (file-remote-p file 'method) ":"
+                           (file-remote-p file 'user) "@" (file-remote-p file 'host)
+                           "|sudo:root@"
+                           (file-remote-p file 'host) ":" (file-remote-p file 'localname))
+                 (concat "/sudo:root@localhost:" file))))
+
+  ;; config
+  (setopt embark-mixed-indicator-delay 0.1)
+  (setopt prefix-help-command #'embark-prefix-help-command)
+
+  ;; ace-window
+  (define-key embark-file-map     (kbd "o") (my/embark-ace-action find-file))
+  (define-key embark-buffer-map   (kbd "o") (my/embark-ace-action switch-to-buffer))
+  (define-key embark-bookmark-map (kbd "o") (my/embark-ace-action bookmark-jump))
+
+  ;; split window(2)
+  (define-key embark-file-map     (kbd "2") (my/embark-split-action find-file split-window-below))
+  (define-key embark-buffer-map   (kbd "2") (my/embark-split-action switch-to-buffer split-window-below))
+  (define-key embark-bookmark-map (kbd "2") (my/embark-split-action bookmark-jump split-window-below))
+
+  ;; split window(3)
+  (define-key embark-file-map     (kbd "3") (my/embark-split-action find-file split-window-right))
+  (define-key embark-buffer-map   (kbd "3") (my/embark-split-action switch-to-buffer split-window-right))
+  (define-key embark-bookmark-map (kbd "3") (my/embark-split-action bookmark-jump split-window-right))
+
+  ;; sudo
+  (define-key embark-file-map (kbd "S") #'my/sudo-find-file)
+
+  ;; ellama
+  (define-key embark-general-map (kbd "T") #'ellama-translate)
+
+  ;; copilot-chat
+  (define-key embark-general-map (kbd "E") #'copilot-chat-explain-defun)
+  (define-key embark-general-map (kbd "R") #'copilot-chat-review)
+  (define-key embark-general-map (kbd "D") #'copilot-chat-doc)
+  (define-key embark-general-map (kbd "F") #'copilot-chat-fix)
+  (define-key embark-general-map (kbd "O") #'copilot-chat-optimize)
+  (define-key embark-general-map (kbd "E") #'copilot-chat-explain-defun)
+
+  ;; hooks
+  (add-hook 'embark-collect-mode-hook #'consult-preview-at-point-mode)))
+
 
 
 ;.29.5. compile-multi
@@ -1638,6 +1345,55 @@ properly disable mozc-mode."
 
     (add-to-list 'completion-styles-alist '(orderless orderless-try-completion orderless-all-completions
                                                       "Completion of multiple components, in any order."))))
+
+
+;; affe
+(eval-when-compile
+  (el-clone :repo "minad/affe"))
+
+(with-delayed-execution
+  (message "Install affe...")
+  (add-to-list 'load-path (locate-user-emacs-file "el-clone/affe")))
+
+(autoload-if-found '(affe-grep) "affe" nil t)
+
+(with-eval-after-load 'affe
+  ;; config
+  (setopt affe-highlight-function 'orderless-highlight-matches)
+  (setopt affe-find-command "fd --color=never --full-path")
+  (setopt affe-regexp-function 'orderless-pattern-compiler))
+
+
+;;; MEMO mail setting. TODO yahooのSMS認証を解除するか対応
+;; ;; mail mew
+;; (add-to-list 'load-path (locate-user-emacs-file "el-clone/mew/elisp"))
+;; (autoload 'mew "mew" nil t)
+;; (autoload 'mew-send "mew" nil t)
+;; (setq mew-icon-directory (expand-file-name "~./.emacs.d/el-clone/mew/etc"))
+;; (add-to-list 'image-load-path (expand-file-name "~./.emacs.d/el-clone/mew/etc"))
+;; ;;; パスワードを表示させないための設定
+;; (add-hook 'comint-output-filter-functions 'comint-watch-for-password-prompt)
+;; ;;Account setting
+;; (setq mew-name "ronaldobraziljp") ;; (user-full-name)
+;; (setq mew-user "ronaldobraziljp") ;; (user-login-name)
+;; (setq mew-mail-domain "yahoo.co.jp")
+;; ;;IMAP setting
+;; (setq mew-proto "%")
+;; (setq mew-imap-user "ronaldobraziljp@yahoo.co.jp")
+;; (setq mew-imap-server "imap.mail.yahoo.co.jp")
+;; (setq mew-imap-auth t)
+;; (setq mew-imap-ssl t)
+;; (setq mew-imap-ssl-port "993")
+;; ;;SMTP setting
+;; (setq mew-smtp-user "ronaldobraziljp@yahoo.co.jp")
+;; (setq mew-smtp-server "smtp.mail.yahoo.co.jp")
+;; (setq mew-smtp-auth t)
+;; (setq mew-ssl-verify-level 0)
+;; (setq mew-smtp-port "submission") ;; The default is "smtp" (25)
+;; (setq mew-smtp-ssl t)
+;; (setq mew-smtp-ssl-port mew-smtp-port) ;; The default is 465
+
+
 
 
 ;.30. Shell
@@ -1787,24 +1543,37 @@ properly disable mozc-mode."
   (all-the-icons-completion-marginalia-setup))
 
 ;.37.4. dashboard
+;; (eval-when-compile
+;;   (el-clone :repo "emacs-dashboard/emacs-dashboard"))
 
-(eval-when-compile
-  (el-clone :repo "emacs-dashboard/emacs-dashboard"))
+;; (with-delayed-execution
+;;   (message "Install dashboard...")
+;;   (add-to-list 'load-path (locate-user-emacs-file "el-clone/emacs-dashboard"))
 
-(with-delayed-execution
-  (message "Install dashboard...")
-  (add-to-list 'load-path (locate-user-emacs-file "el-clone/emacs-dashboard"))
+;;   (autoload-if-found '(dashboard-refresh-buffer) "dashboard" nil t)
 
-  (autoload-if-found '(dashboard-refresh-buffer) "dashboard" nil t)
+;;   (with-eval-after-load 'dashboard
+;;     (setq dashboard-startup-banner 'logo)
+;;     (setq dashboard-set-file-icons t)
+;;     (setq dashboard-startup-banner 4)
+;;     (setq dashboard-items '((recents . 10)
+;;                             (projects . 5)
+;;                             (agenda . 5)))
+;;     )
+;;   )
 
-  (with-eval-after-load 'dashboard
-    (setq dashboard-startup-banner 'logo)
-    (setq dashboard-set-file-icons t)
-    (setq dashboard-startup-banner 4)
-    (setq dashboard-items '((recents . 10)))))
+(require 'dashboard)
+     (setq dashboard-startup-banner 'logo)
+     (setq dashboard-set-file-icons t)
+     (setq dashboard-startup-banner 4)
+     (setq dashboard-items '((recents . 10)
+                             (projects . 5)
+                             (agenda . 5)))
+(dashboard-setup-startup-hook)
+
+
 
 ;.37.5. dimmer
-
 (eval-when-compile
   (el-clone :repo "gonewest818/dimmer.el"))
 
@@ -1830,31 +1599,17 @@ properly disable mozc-mode."
 (with-delayed-execution-priority-high
   (message "Install nyan-mode...")
   (add-to-list 'load-path (locate-user-emacs-file "el-clone/nyan-mode"))
-
   (autoload-if-found '(nyan-mode) "nyan-mode" nil t)
-
   (nyan-mode)
-
   (with-eval-after-load 'nyan-mode
     (setq nyan-cat-face-number 5)
+    (setq nyan-animation-frame-interval 1)
+    (setq nyan-bar-length 18)
     (setq nyan-animate-nyancat t)))
 
-;.37.13. volatile-highlights
-
-(eval-when-compile
-  (el-clone :repo "k-talo/volatile-highlights.el"))
-
-(with-delayed-execution
-  (message "Install volatile-highlights...")
-  (add-to-list 'load-path (locate-user-emacs-file "el-clone/volatile-highlights"))
-
-  (autoload-if-found '(volatile-highlights-mode) "volatile-highlights" nil t)
-
-  (volatile-highlights-mode t))
 
 
 ;.41.12. restclient
-
 (eval-when-compile
   (el-clone :repo "pashky/restclient.el"))
 
@@ -1865,30 +1620,56 @@ properly disable mozc-mode."
   (autoload-if-found '(restclient-mode) "restclient" nil t))
 
 ;.41.13. smartparens
-
 (eval-when-compile
   (el-clone :repo "Fuco1/smartparens"))
-
 (with-delayed-execution
   (message "Install smartparens...")
   (add-to-list 'load-path (locate-user-emacs-file "el-clone/smartparens"))
-
   (with-eval-after-load 'smartparens))
 
-;.41.14. smart-jump
+; puni
+(eval-when-compile
+  (el-clone :repo "AmaiKinono/puni"))
+(with-delayed-execution
+  (message "Install puni...")
+  (add-to-list 'load-path (locate-user-emacs-file "el-clone/puni"))
+  (autoload-if-found '(puni-mode) "puni" nil t)
+  (dolist (hook '(lisp-interaction-mode-hook minibuffer-mode-hook prog-mode-hook org-mode-hook lisp-mode-hook emacs-lisp-mode-hook c-mode-hook c++-mode-hook sgml-mode-hook nxml-mode-hook tex-mode-hook eval-expression-minibuffer-setup-hook))
+    (global-set-key (kbd "<M-BS>") 'puni-backward-kill-word )
+    (global-set-key (kbd "C-@")    'puni-expand-region )
+    (global-set-key (kbd "C-!")  'puni-mark-sexp-at-point )
+    (global-set-key (kbd "C-#")  'puni-mark-list-around-point )
+    (global-set-key (kbd "C-$")  'puni-mark-sexp-around-point )
+    (global-set-key (kbd "C-d")  'puni-forward-delete-char)
+    (global-set-key (kbd "<DEL>")'puni-backward-delete-char )
+    (global-set-key (kbd "M-d")  'puni-forward-kill-word )
+    (global-set-key (kbd "M-DEL")  'puni-backword-kill-word )
+    (global-set-key (kbd "C-k")  'puni-kill-line)
+    (global-set-key (kbd "C-S-k")  'puni-backward-kill-line)
+    (add-hook hook #'puni-mode)))
 
+
+; visual regexp 置換
+(eval-when-compile
+  (el-clone :repo "benma/visual-regexp.el"))
+(with-delayed-execution
+  (message "Install visual-regexp...")
+  (add-to-list 'load-path (locate-user-emacs-file "el-clone/visual-regexp"))  
+  (autoload-if-found '(visual-regexp) "visual-regexp" nil t))
+  
+  
+
+
+;.41.14. smart-jump
 (eval-when-compile
   (el-clone :repo "jojojames/smart-jump"))
-
 (with-delayed-execution
   (message "Install smart-jump...")
   (add-to-list 'load-path (locate-user-emacs-file "el-clone/smart-jump"))
-
   (with-eval-after-load 'smart-jump))
 
 
 ;.42.1. ace-window
-
 (eval-when-compile
   (el-clone :repo "abo-abo/ace-window"))
 
@@ -1909,21 +1690,70 @@ properly disable mozc-mode."
 
 
 
-;1.12. mistty
-
+;1.12. mistty inside shell
 (eval-when-compile
   (el-clone :repo "szermatt/mistty"))
-
 (with-delayed-execution
   (message "Install mistty...")
   (add-to-list 'load-path (locate-user-emacs-file "el-clone/mistty"))
   (autoload-if-found '(mistty) "mistty" nil t))
 
 
+; ox-qmd org-mode to qiita markdown export C-c C-e
+(eval-when-compile
+  (el-clone :repo "0x60df/ox-qmd"))
+(with-delayed-execution
+  (message "Install ox-qmd...")
+  (add-to-list 'load-path (locate-user-emacs-file "el-clone/ox-qmd"))
+  (autoload-if-found '(org-qmd-export-to-markdown org-qmd-convert-region-to-md) "ox-qmd" nil t))
+
+;; ; minions : minor-mode show few word.
+;; (eval-when-compile
+;;   (el-clone :repo "tarsius/minions"))
+;; (with-delayed-execution
+;;   (message "Install minions...")
+;;   (add-to-list 'load-path (locate-user-emacs-file "el-clone/minions"))
+;;   ;(add-hook 'org-mode-hook #'minions-mode)
+;;   ;(add-hook 'org-mode-hook #'(lambda ()
+;;   ;                             (minions-mode)
+;;   ;                             (setq minions-mode-line-lighter "[+]")))
+;;   ;(setq minions-prominent-modes '(flymake-mode))
+;;   )
 
 
-
+; org
 (with-eval-after-load 'org
+  ;; タグリスト
+  (setq org-tag-alist '(("home" . ?h) ("office" . ?o) ("meeting" . ?m)))
+  ;; DONE etc.faces.
+  (setq org-todo-keyword-faces
+      '(
+      ("TODO" . org-warning)
+      ("WAIT" . "PaleGreen")
+      ("SOMEDAY" . "OliveDrab")
+      ("DONE" . "LightSlateGray")))
+      
+; https://sachachua.com/blog/2012/12/emacs-strike-through-headlines-for-done-tasks-in-org/
+(setq org-fontify-done-headline t)
+(custom-set-faces
+ '(org-done ((t (:foreground "PaleGreen"   
+                 :weight normal
+                 :strike-through t))))
+ '(org-headline-done 
+            ((((class color) (min-colors 16) (background dark)) 
+               (:foreground "LightSalmon" :strike-through t)))))
+
+  (setq org-return-follows-link t)  ; Returnキーでリンク先を開く
+  (setq org-mouse-1-follows-link t) ; マウスクリックでリンク先を開く
+  (setq org-startup-indented t)    ;; 見出しをインデント
+  (setq org-indent-mode-turns-on-hiding-stars nil)  ;; 見出しをインデントした時にアスタリスクが減るのを防ぐ
+  (setq org-indent-indentation-per-level 2)  ;; インデントの幅を設定
+  (setq org-startup-folded 'content)  ;; 見出しの初期状態（見出しだけ表示）
+
+  ; アンダースコアを入力しても下付き文字にならないようにする
+  (setq org-use-sub-superscripts '{}
+      org-export-with-sub-superscripts nil)
+
   ;; keybind
   (define-key org-mode-map (kbd "C-c ,") #'org-insert-structure-template)
   (define-key org-mode-map (kbd "C-c C-,") #'org-insert-structure-template)
@@ -2108,6 +1938,36 @@ properly disable mozc-mode."
   (with-eval-after-load 'ol
     (setq org-link-file-path-type 'relative)))
 
+
+;; link to clipboard org link format
+(defun to-clipboard (x)
+      "与えられた文字列をクリップボードにコピーします"
+      (when x
+        (with-temp-buffer
+          (insert x)
+          (clipboard-kill-region (point-min) (point-max)))
+        (message x)))
+
+(defun file-full-path ()
+      "今開いているファイルの絶対パス::行数を返します"
+      (if (equal major-mode 'dired-mode)
+          default-directory
+        (concat (buffer-file-name) "::" (number-to-string (line-number-at-pos)))))
+  
+(defun file-full-path-org-link-to-clipboard ()
+      "今開いているファイルの org link をクリップボードにコピーします"
+      (interactive)
+      (require 'which-func) ; require は最初一回だけloadするのでここで大丈夫.
+      (to-clipboard (concat "[[" (file-full-path) "][" (file-name-nondirectory buffer-file-name) " "
+       (string-replace "%" "%%"
+         (or
+           (gethash
+             (selected-window)
+              which-func-table)
+              which-func-unknown))
+       "]]")))
+
+
 ;2.5.2. org-link-beautify
 
 (eval-when-compile
@@ -2163,8 +2023,6 @@ properly disable mozc-mode."
                                     (:name "SOMEDAY List..." :todo "SOMEDAY")))))
 
 
-
-
 ;2.8.1. basic
 
 (with-delayed-execution
@@ -2183,25 +2041,30 @@ properly disable mozc-mode."
                                                 "mysql: [Warning] Using a password on the command line interface can be insecure.\n"))
                               (apply old-func args)))))
 
+
+  ;; plantuml.jarへのパスを設定
+  (setq org-plantuml-jar-path "~/.emacs.d/lib/plantuml.jar")
+
   (org-babel-do-load-languages 'org-babel-load-languages
                                '((awk . t)
                                  (C . t)
                                  (R . t)
-                                 (clojure . t)
+                                 ;(clojure . t)
                                  (emacs-lisp . t)
                                  (haskell . t)
                                  (java . t)
                                  (js . t)
                                  (lisp . t)
                                  (makefile . t)
-                                 (perl . t)
+                                 ;(perl . t)
                                  (plantuml . t)
                                  (python . t)
                                  (ruby . t)
-                                 (scheme . t)
-                                 (shell . t)
+                                 ;(scheme . t)
+                                 ;(shell . t)
                                  (sql . t)
                                  (shell . t))))
+
 
 ; highlight-symbol
 (eval-when-compile
@@ -2224,7 +2087,18 @@ properly disable mozc-mode."
   (add-to-list 'load-path (locate-user-emacs-file "el-clone/golden-ratio"))
   (autoload-if-found '(golden-ratio-mode) "golden-ratio" nil t)
   (setq golden-ratio-auto-scale t)
-  (golden-ratio-mode t))
+  (golden-ratio-mode t)
+  )
+
+; vundo undo / redo vizual M-x vundo f b n p key q:quit
+(eval-when-compile
+  (el-clone :repo "casouri/vundo"))
+(with-delayed-execution
+  (message "Install vundo...")
+  (add-to-list 'load-path (locate-user-emacs-file "el-clone/vundo"))
+  (autoload-if-found '(vundo) "vundo" nil t)
+  )
+
 
 ; find file in project fdfind
 (eval-when-compile
@@ -2236,18 +2110,42 @@ properly disable mozc-mode."
   (setq ffip-project-root "~/")
   (setq ffip-use-rust-fd t))
 
-; agressive indent mode
-;(eval-when-compile
-;  (el-clone :repo "Malabarba/aggressive-indent-mode"))
-;(with-delayed-execution
-;  (message "Install Malabarba/aggressive-indent-mode...")
-;  (add-to-list 'load-path (locate-user-emacs-file "el-clone/aggressive-indent-mode"))
-;  (autoload-if-found '(aggressive-indent-mode) "aggressive-indent-mode" nil t)
-;  (add-hook 'prog-mode-hook 'aggressive-indent-mode)
-;  (add-hook 'emacs-lisp-mode-hook #'aggressive-indent-mode))
 
+; cmigemo
+(eval-when-compile
+  (el-clone :repo "emacs-jp/migemo"))
+(with-delayed-execution
+  (message "Install emacs-jp/migemo...")
+  (add-to-list 'load-path (locate-user-emacs-file "el-clone/migemo"))
+  (autoload-if-found '(migemo) "migemo" nil t)
+  (setq migemo-options '("-q" "--emacs"))
+  (setq migemo-user-dictionary nil)
+  (setq migemo-regex-dictionary nil)
+  (setq migemo-coding-system 'utf-8-unix)
+  (setq migemo-command "cmigemo")
+  (setq migemo-dictionary "/usr/share/cmigemo/utf-8/migemo-dict")
+  (setq migemo-use-pattern-alist t)
+  (setq migemo-use-frequent-pattern-alist t)
+  (load-library "migemo")
+  (migemo-init))
 
-; easy-kill
+;; browse-kill-ring
+(eval-when-compile
+  (el-clone :repo "browse-kill-ring/browse-kill-ring"))
+(with-delayed-execution
+  (message "Install browse-kill-ring...")
+  (add-to-list 'load-path (locate-user-emacs-file "el-clone/browse-kill-ring"))
+  (autoload-if-found '(browse-kill-ring) "browse-kill-ring" nil t)
+  )
+
+; easy-kill Kill & Mark Things Easily in Emacs
+;; M-w w: save word at point
+;; M-w s: save sexp at point
+;; M-w l: save list at point (enclosing sexp)
+;; M-w d: save defun at point
+;; M-w D: save current defun name
+;; M-w f: save file at point
+;; ;; M-w b: save buffer-file-name
 (eval-when-compile
   (el-clone :repo "leoliu/easy-kill"))
 (with-delayed-execution
@@ -2256,47 +2154,275 @@ properly disable mozc-mode."
   (autoload-if-found '(easy-kill) "easy-kill" nil t)
   (global-set-key [remap kill-ring-save] 'easy-kill))
 
+(defun org-show-one-levels ()
+  (interactive)
+  (org-content 1))
+
+(defun org-show-two-levels ()
+  (interactive)
+  (org-content 2))
+
+(defun lines-comment ()
+  (interactive)
+  (save-excursion
+    (if (region-active-p)
+      (progn 
+	    (setq original_begin (region-beginning))
+	    (setq original_end (region-end))
+	    (goto-char (region-beginning))
+	    (beginning-of-line)
+	    (set-mark (point))
+	    (goto-char original_end)
+	    (end-of-line)
+	    (comment-or-uncomment-region (region-beginning) (region-end))
+      )
+      (beginning-of-line)
+      (set-mark (point))
+      (end-of-line)
+      (comment-or-uncomment-region (region-beginning) (region-end))
+)))
+
+
+; dump-jump
+(eval-when-compile
+  (el-clone :repo "jacktasia/dumb-jump"))
+(with-delayed-execution
+  (message "Install dumb-jump...")
+  (add-to-list 'load-path (locate-user-emacs-file "el-clone/dumb-jump"))
+  (autoload-if-found '(dumb-jump-mode) "dumb-jump" nil t)
+  (global-set-key (kbd "C-c C-g") 'dumb-jump-go)
+  (global-set-key (kbd "C-c C-p") 'dumb-jump-back)
+  (global-set-key (kbd "C-c C-q") 'dumb-jump-quick-look)
+  (add-hook 'xref-backend-functions #'dumb-jump-xref-activate) ;; xref使うらしい
+  (setq dumb-jump-force-searcher 'rg) ;; default git grepが使われてエラー
+  (setq dumb-jump-prefer-searcher 'rg) ;; rgコマンドを優先的に利用する
+  (setq dumb-jump-default-project "")  ;; $HOME以下が検索対象になるのを回避
+  (setq dumb-jump-disable-obsolete-warnings t) ;; レガシーコマンドの警告非表示
+  (add-hook 'prog-mode-hook 'dumb-jump-mode)
+  (add-hook 'emacs-lisp-mode-hook 'dumb-jump-mode)
+  )
+
+
+;; cursor demonstrate (like beacon)
+(eval-when-compile
+  (el-clone :repo "protesilaos/pulsar"))
+
+(with-delayed-execution
+  (message "Install pulsar...")
+  (add-to-list 'load-path (locate-user-emacs-file "el-clone/pulsar"))
+  (autoload-if-found '(pulsar-global-mode) "pulsar" nil t)
+  (pulsar-global-mode +1))
+
+
+; goggles pulse paste region
+(eval-when-compile
+  (el-clone :repo "minad/goggles"))
+
+(with-delayed-execution
+  (message "Install goggles...")
+  (add-to-list 'load-path (locate-user-emacs-file "el-clone/goggles"))
+
+  (autoload-if-found '(goggles-mode) "goggles" nil t)
+  
+  ;; 色を薄くする回数、1で即消える
+  (custom-set-variables '(goggles-pulse-iterations 2))
+  ;; 色を薄くする1回ごとの秒数
+  (custom-set-variables '(goggles-pulse-delay 0.1))
+  
+  (custom-set-faces
+   ;'(goggles-added ((t (:background "#382c39"))))
+   '(goggles-added   ((t (:background "#010101"))))
+   '(goggles-changed ((t (:background "#c9ba99"))))
+   '(goggles-removed ((t (:background "#fabfbb")))))
+  (add-hook 'prog-mode-hook 'goggles-mode)
+   ; (add-hook 'org-mode-hook 'goggles-mode)
+  )
+
+
+
+(global-set-key (kbd "C-/") 'lines-comment)
+
 (global-set-key (kbd "<f1>") 'highlight-symbol-prev )
 (global-set-key (kbd "<f2>") 'highlight-symbol )
 (global-set-key (kbd "<f3>") 'highlight-symbol-next )
-;(global-set-key (kbd "<f4>") 'helm-mini)
 (global-set-key (kbd "<f4>") 'consult-buffer)
 (global-set-key (kbd "<f5>") 'find-file-in-project)
 (global-set-key (kbd "<f6>") 'org-agenda)
 (global-set-key (kbd "<f7>") 'revert-buffer)
 (global-set-key (kbd "<f8>") 'org-show-two-levels)
+(global-set-key (kbd "<S-f8>") 'org-show-one-levels)
 (global-set-key (kbd "<f9>") 'file-full-path-org-link-to-clipboard)
 (global-set-key (kbd "<f10>") 'calculator)
-;(global-set-key (kbd "C-S-s") 'helm-occur)
 (global-set-key (kbd "<S-f7>") 'other-window)
+(global-set-key (kbd "A-y") 'browse-kill-ring )
 
 ; adust U F17
 ;(global-set-key (kbd "<XF86Launch8>") 'mode-line-other-buffer)
 (global-set-key (kbd "<XF86Launch8>") 'other-window)
 
 
-(global-set-key (kbd "<S-f8>") 'delete-window )
-(global-set-key (kbd "<S-f9>") 'split-window-horizontally)
+(global-set-key (kbd "<S-f2>") 'delete-window )
+(global-set-key (kbd "<S-f3>") 'split-window-horizontally)
+
+; visual 置換
+(define-key global-map (kbd "C-c r") 'vr/replace)
+(define-key global-map (kbd "C-c q") 'vr/query-replace)
 
 
+(global-set-key (kbd "C-s") #'consult-line) ;; バッファ検索
+(global-set-key (kbd "C-S-s") #'consult-line-multi) ;; 複数バッファ串刺し検索
+(global-set-key (kbd "C-M-s") #'consult-line-migemo) ;; migemo search
+
+(global-set-key (kbd "C-x C-p") #'switch-to-prev-buffer)
+(global-set-key (kbd "C-x C-n") #'switch-to-next-buffer)
+
+
+
+;; カーソル下のシンボルを拾ってconsult-line発動
+(defun consult-line-symbol-at-point (&optional at-point)
+  "Consult-line uses things-at-point if set C-u prefix."
+  (interactive "P")
+  (if at-point
+      (consult-line (thing-at-point 'symbol))
+    (consult-line)))
+
+;; consult-buffer の live preview でシンタックスハイライトさせない
+;; 画像プレビューには向いていない
+(setq consult-preview-partial-size 0)
+
+;; 0に設定すれば画像やPDFプレビューさせない（バッファを開いていない場合）
+(setq consult-preview-partial-chunk 102400)
+
+;; ローマ字入力でconsult-lineを発動する
+(defun consult-line-migemo ()
+  (interactive)
+  (let ((input (read-string "Input: " nil)))
+    (consult-line (migemo-get-pattern input))))
+;; migemo検索中からでもconsult-line発動
+(defun consult-line-migemo-isearch ()
+  (interactive)
+  (consult-line (migemo-get-pattern isearch-string)))
+(define-key isearch-mode-map (kbd "C-o") #'consult-line-migemo-isearch)
+
+
+(setq x-select-enable-clipboard t)
 (setq split-height-threshold nil)
-
-;(global-set-key (kbd "<S-f11>") 'dumb-jump-go)
-;(global-set-key (kbd "<S-f12>") 'dumb-jump-back)
-;(global-set-key (kbd "<S-f13>") 'dumb-jump-quick-look)
 
 ;6.1. byte-compileする
 ;; (eval-when-compile
 ;;   (el-clone-byte-compile))
 
 ;6.2. Magic File Name を有効にする
-
 (setq file-name-handler-alist my/saved-file-name-handler-alist)
 
-;6.3. profilerを終了する
+; https://qiita.com/nobuyuki86/items/122e85b470b361ded0b4
+; gc https://emacsconf.org/2023/talks/gc/
+(setq gc-cons-percentage 0.2
+      gc-cons-threshold (* 128 1024 1024))
+(add-hook 'focus-out-hook #'garbage-collect)
+(setq process-adaptive-read-buffering t)
+(setq blink-matching-paren nil)
+(setq auto-mode-case-fold nil)
+(setq-default bidi-display-reordering 'left-to-right)
+(setq bidi-inhibit-bpa t)
+(setq-default cursor-in-non-selected-windows nil)
+(setq highlight-nonselected-windows nil)
+(setq fast-but-imprecise-scrolling t)
+(setq ffap-machine-p-known 'reject)
+(setq idle-update-delay 1.0)
+(setq redisplay-skip-fontification-on-input t)
 
+
+
+; https://apribase.net/2024/07/23/emacs-optimize/
+(setq frame-inhibit-implied-resize t)
+
+;; OS判定用関数
+(defconst IS-MAC (eq system-type 'darwin))
+(defconst IS-LINUX (memq system-type '(gnu gnu/linux gnu/kfreebsd berkeley-unix)))
+(defconst IS-WINDOWS (memq system-type '(cygwin windows-nt ms-dos)))
+
+
+(when IS-WINDOWS
+  (setq w32-get-true-file-attributes nil
+        w32-pipe-read-delay 0
+        w32-pipe-buffer-size (* 64 1024)))
+(when IS-WINDOWS
+  (setq w32-use-native-image-API t))
+(unless IS-MAC
+  (setq command-line-ns-option-alist nil)
+
+;.12. [mac] clipboardに入るようにする
+  (with-delayed-execution
+    (defun my/copy-from-osx ()
+    (shell-command-to-string "pbpaste"))
+
+  (defun my/paste-to-osx (text)
+    (let ((process-connection-type nil))
+      (let ((proc (start-process "pbcopy" "*Messages*" "pbcopy")))
+        (process-send-string proc text)
+        (process-send-eof proc))))
+  (when-darwin-not-window-system
+   (setq interprogram-cut-function #'my/paste-to-osx)
+   (setq interprogram-paste-function #'my/copy-from-osx)))
+  )
+
+(unless IS-LINUX
+  (setq command-line-x-option-alist nil)
+  )
+  
+;; frame title
+(setq frame-title-format
+      '(buffer-file-name (:eval (abbreviate-file-name buffer-file-name))
+                         (dired-directory dired-directory
+                                          "%b")))
+
+(defun my:font-initialize ()
+  "Initialize fonts on window-system"
+  (interactive)
+
+  (cond
+   ((eq window-system 'x)
+    (let* ((size 12)
+           (asciifont "Cica")
+           (jpfont "Cica")
+           (h (round (* size 12)))
+           (jp-fontspec (font-spec :family jpfont)))
+      (set-face-attribute 'default nil :family asciifont :height h)
+      (unless (string= asciifont jpfont)
+        (set-fontset-font nil 'unicode jp-fontspec nil 'append))
+      (when (featurep 'all-the-icons)
+        (set-fontset-font nil 'unicode (font-spec :family (all-the-icons-alltheicon-family)) nil 'append)
+        (set-fontset-font nil 'unicode (font-spec :family (all-the-icons-material-family)) nil 'append)
+        (set-fontset-font nil 'unicode (font-spec :family (all-the-icons-fileicon-family)) nil 'append)
+        (set-fontset-font nil 'unicode (font-spec :family (all-the-icons-faicon-family)) nil 'append)
+        (set-fontset-font nil 'unicode (font-spec :family (all-the-icons-octicon-family)) nil 'append)
+        (set-fontset-font nil 'unicode (font-spec :family (all-the-icons-wicon-family)) nil 'append))
+      (message (format "Setup for %s with %f" asciifont size))))
+   (t
+    (message "Not have window-system"))))
+
+; font 設定を反映
+(my:font-initialize)
+
+; long file adapt. 
+(global-so-long-mode)
+
+;6.3. profilerを終了する
 (when my/enable-profile
   (profiler-report)
   (profiler-stop))
+
+(custom-set-faces
+ ;; custom-set-faces was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ '(default ((t (:background "#282a36" :foreground "#f8f8f2"))))
+ '(goggles-added ((t (:background "#010101"))))
+ '(goggles-changed ((t (:background "#c9ba99"))))
+ '(goggles-removed ((t (:background "#fabfbb"))))
+ '(org-done ((t (:foreground "PaleGreen" :weight normal :strike-through t))))
+ '(org-headline-done ((((class color) (min-colors 16) (background dark)) (:foreground "LightSalmon" :strike-through t)))))
 
 (message "init.el end.")
